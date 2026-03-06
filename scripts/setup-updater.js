@@ -40,8 +40,9 @@ if (conf.plugins?.updater) {
 console.log(`
 \x1b[32mSetup complete.\x1b[0m
 
-Next: Add \x1b[32mTAURI_SIGNING_PRIVATE_KEY\x1b[0m to GitHub Secrets (Settings → Secrets → Actions).
-Value: paste the contents of \x1b[33mkeys/dreamwork.key\x1b[0m
+Next: Add these GitHub Secrets (Settings → Secrets → Actions):
+  \x1b[32mTAURI_SIGNING_PRIVATE_KEY\x1b[0m — contents of \x1b[33mkeys/dreamwork.key\x1b[0m
+  \x1b[32mTAURI_SIGNING_PRIVATE_KEY_PASSPHRASE\x1b[0m — the password you set when generating the key
 
 Then push to \x1b[32mrelease\x1b[0m branch or create a tag (e.g. v0.1.0) to publish.
 `);

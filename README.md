@@ -54,7 +54,9 @@ Output in `src-tauri/target/release/bundle/`:
 The app checks for updates on startup and installs + relaunches automatically. **One-time setup:**
 
 1. Run `npm run tauri signer generate -- -w keys/dreamwork.key` (prompts for password), then `npm run setup-updater` — updates config with your public key
-2. Add `TAURI_SIGNING_PRIVATE_KEY` to GitHub Secrets (Settings → Secrets → Actions): paste the contents of `keys/dreamwork.key`
+2. Add these GitHub Secrets (Settings → Secrets → Actions):
+   - `TAURI_SIGNING_PRIVATE_KEY` — contents of `keys/dreamwork.key`
+   - `TAURI_SIGNING_PRIVATE_KEY_PASSPHRASE` — the password you set when generating the key
 3. Update `repository` in `package.json` if your repo is elsewhere (e.g. `"repository": "github.com/your-username/dreamwork"`)
 4. Release: push to the `release` branch, or create a tag (e.g. `git tag v0.1.0 && git push --tags`). Ensure `version` in `src-tauri/tauri.conf.json` matches the tag
 
@@ -71,6 +73,22 @@ The app checks for updates on startup and installs + relaunches automatically. *
 ## Troubleshooting
 
 **Camera not showing in full-page whiteboard?** Try running in a regular browser first (`npm run dev` → http://localhost:1420). If it works there but not in Tauri, it may be a WebView limitation on macOS. Start the camera before opening full-page whiteboard.
+
+## Deploy to Web (Render)
+
+Deploy the web version to [Render](https://render.com):
+
+1. Push this repo to GitHub
+2. Go to [Render Dashboard](https://dashboard.render.com) → **New** → **Static Site**
+3. Connect your GitHub repo
+4. Use the `render.yaml` in the repo, or set manually:
+   - **Build command:** `npm install && npm run build`
+   - **Publish directory:** `dist`
+5. Deploy
+
+The `render.yaml` in the repo configures this automatically when you use **Blueprint** (New → Blueprint).
+
+**Note:** Screen capture, camera, and recording work in the browser. Live Meeting requires a separate signaling server. Some Tauri-specific features (e.g. auto-updates) are desktop-only.
 
 ## Tech
 
