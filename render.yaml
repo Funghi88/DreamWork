@@ -14,11 +14,10 @@ services:
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist
     envVars:
+      # Hardcoded so signaling URL is available at static site build time.
+      # fromService/RENDER_EXTERNAL_URL can be empty during parallel builds.
       - key: VITE_SIGNALING_URL
-        fromService:
-          type: web
-          name: dreamwork-signaling
-          envVarKey: RENDER_EXTERNAL_URL
+        value: https://dreamwork-signaling.onrender.com
     routes:
       - type: rewrite
         source: /*
