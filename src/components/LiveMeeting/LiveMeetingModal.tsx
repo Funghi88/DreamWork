@@ -85,6 +85,7 @@ export function LiveMeetingModal({ isOpen, onClose }: LiveMeetingModalProps) {
   const callAreaRef = useRef<HTMLDivElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const joiningRef = useRef(false);
+  const inCallRef = useRef(false);
 
   useEffect(() => {
     if (isOpen && step === "join") {
@@ -258,6 +259,7 @@ export function LiveMeetingModal({ isOpen, onClose }: LiveMeetingModalProps) {
       setParticipants((prev) => prev.filter((p) => p.id !== id));
     });
 
+    inCallRef.current = true;
     setStep("in-call");
     preloadSegmenter();
     } catch (err) {
@@ -318,6 +320,7 @@ export function LiveMeetingModal({ isOpen, onClose }: LiveMeetingModalProps) {
   };
 
   const leaveCall = () => {
+    inCallRef.current = false;
     screenStreamRef.current?.getTracks().forEach((t) => t.stop());
     localStreamRef.current?.getTracks().forEach((t) => t.stop());
     localStream?.getTracks().forEach((t) => t.stop());
@@ -386,7 +389,7 @@ export function LiveMeetingModal({ isOpen, onClose }: LiveMeetingModalProps) {
       <div
         className="live-meeting-modal-wrapper"
         style={
-          step === "join"
+            step === "join" && !inCallRef.current
             ? { width: 420, height: "auto", minHeight: 320 }
             : { width: modalSize.w, height: modalSize.h }
         }
@@ -396,7 +399,7 @@ export function LiveMeetingModal({ isOpen, onClose }: LiveMeetingModalProps) {
           <h2>Live Video Meeting</h2>
           <button
             type="button"
-            onClick={step === "lobby" || step === "in-call" ? leaveCall : onClose}
+            onClick={step === "lobby" || step === "in-call" || inCallRef.current ? leaveCall : onClose}
             className="live-meeting-close"
             aria-label="Close"
           >
@@ -404,7 +407,7 @@ export function LiveMeetingModal({ isOpen, onClose }: LiveMeetingModalProps) {
           </button>
         </div>
 
-        {step === "join" && (
+        {step === "join" && !inCallRef.current && (
           <div className="live-meeting-join">
             <div className="live-meeting-join-title">Join a meeting</div>
             <div className="live-meeting-join-features">
@@ -450,7 +453,7 @@ export function LiveMeetingModal({ isOpen, onClose }: LiveMeetingModalProps) {
           </div>
         )}
 
-        {(step === "lobby" || step === "in-call") && (
+        {(step === "lobby" || step === "in-call" || inCallRef.current) && (
           <div className="live-meeting-call" ref={callAreaRef}>
             <div className="live-meeting-call-inner">
               <div className="live-meeting-info-bar">
