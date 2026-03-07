@@ -25,9 +25,17 @@ import { ParticipantsPanel } from "./ParticipantsPanel";
 import { VirtualBackground, useVirtualBackground, preloadSegmenter } from "./VirtualBackground";
 import "./LiveMeetingModal.css";
 
-const SIGNALING_URL =
+const DEFAULT_SIGNALING_URL =
   import.meta.env.VITE_SIGNALING_URL ||
   (import.meta.env.DEV ? "http://localhost:3001" : "https://dreamwork-signaling.onrender.com");
+
+function getSignalingUrl(): string {
+  if (typeof window === "undefined") return DEFAULT_SIGNALING_URL;
+  const params = new URLSearchParams(window.location.search);
+  const override = params.get("signaling");
+  if (override) return override.replace(/\/$/, "");
+  return DEFAULT_SIGNALING_URL;
+}
 
 function generateRoomId() {
   return Math.random().toString(36).slice(2, 10);
@@ -162,6 +170,17 @@ export function LiveMeetingModal({ isOpen, onClose }: LiveMeetingModalProps) {
 
     setConnectionError(null);
     setStep("lobby");
+    const signalingUrl = getSignalingUrl();
+    try {
+      const healthRes = await fetch(`${signalingUrl}/health`, { mode: "cors", signal: AbortSignal.timeout(15000) });
+      if (!healthRes.ok) throw new Error("Server not ready");
+    } catch {
+      setConnectionError(
+        'Signaling server not reachable. In Render, ensure "dreamwork-signaling" is deployed and running. If your server has a different URL, add ?signaling=YOUR_URL to this page.'
+      );
+      setStep("join");
+      return;
+    }
     const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     const videoTrack = stream.getVideoTracks()[0];
     cameraVideoTrackRef.current = videoTrack ?? null;
@@ -169,7 +188,7 @@ export function LiveMeetingModal({ isOpen, onClose }: LiveMeetingModalProps) {
     setLocalStream(stream);
     setDisplayStream(stream);
 
-    const socket = io(SIGNALING_URL, {
+    const socket = io(signalingUrl, {
       timeout: 60000, // Render free tier cold start can take 25–60s
       reconnectionAttempts: 5,
     });
