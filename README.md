@@ -102,6 +102,8 @@ The `render.yaml` in the repo configures this automatically when you use **Bluep
 
 **Note:** Screen capture, camera, and recording work in the browser. Live Meeting requires a separate signaling server. Some Tauri-specific features (e.g. auto-updates) are desktop-only.
 
+**Live Meeting not working on Render?** Ensure both services from the Blueprint are deployed: `dreamwork` (static site) and `dreamwork-signaling` (WebSocket server). On free tier, the signaling server sleeps after ~15 min of inactivity—first connection can take 30–60s. To keep it awake, add an [UptimeRobot](https://uptimerobot.com) monitor pinging `https://dreamwork-signaling.onrender.com/health` every 10 minutes.
+
 ## Tech
 
 - Tauri 2 (Rust + WebView)

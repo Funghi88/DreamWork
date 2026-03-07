@@ -64,6 +64,7 @@ export function LiveMeetingModal({ isOpen, onClose }: LiveMeetingModalProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [modalSize, setModalSize] = useState({ w: 960, h: 720 });
   const [controlsVisible, setControlsVisible] = useState(true);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
   const { mode: bgMode, setMode: setBgMode, color: bgColor, setColor: setBgColor } = useVirtualBackground();
 
   const socketRef = useRef<Socket | null>(null);
@@ -159,6 +160,7 @@ export function LiveMeetingModal({ isOpen, onClose }: LiveMeetingModalProps) {
   const joinRoom = async () => {
     if (!userName.trim() || !roomId.trim()) return;
 
+    setConnectionError(null);
     setStep("lobby");
     const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     const videoTrack = stream.getVideoTracks()[0];
@@ -167,8 +169,15 @@ export function LiveMeetingModal({ isOpen, onClose }: LiveMeetingModalProps) {
     setLocalStream(stream);
     setDisplayStream(stream);
 
-    const socket = io(SIGNALING_URL);
+    const socket = io(SIGNALING_URL, {
+      timeout: 60000, // Render free tier cold start can take 25–60s
+      reconnectionAttempts: 5,
+    });
     socketRef.current = socket;
+
+    socket.on("connect_error", (err) => {
+      setConnectionError(err.message || "Could not connect to server. If using Render free tier, wait ~60s for cold start.");
+    });
 
     socket.emit("join-room", roomId, userName);
 
@@ -416,6 +425,11 @@ export function LiveMeetingModal({ isOpen, onClose }: LiveMeetingModalProps) {
           <div className="live-meeting-call" ref={callAreaRef}>
             <div className="live-meeting-call-inner">
               <div className="live-meeting-info-bar">
+                {connectionError && (
+                  <div className="live-meeting-connection-error">
+                    {connectionError}
+                  </div>
+                )}
                 <div className="live-meeting-room-code">
                   <span>{roomId}</span>
                   <button

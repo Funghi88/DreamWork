@@ -260,6 +260,16 @@
 }
 
 /* Meeting info bar - in flow so it doesn't overlay content */
+.live-meeting-connection-error {
+  flex-basis: 100%;
+  padding: 0.5rem 0.75rem;
+  background: rgba(220, 53, 69, 0.12);
+  color: #b02a37;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  margin-bottom: 0.5rem;
+}
+
 .live-meeting-info-bar {
   flex-shrink: 0;
   display: flex;

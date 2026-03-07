@@ -6,6 +6,8 @@ import cors from "cors";
 const app = express();
 app.use(cors());
 
+app.get("/health", (_req, res) => res.send("ok"));
+
 const server = http.createServer(app);
 const io = new SocketIOServer(server, {
   cors: { origin: "*" },
