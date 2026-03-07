@@ -172,7 +172,6 @@ export function LiveMeetingModal({ isOpen, onClose }: LiveMeetingModalProps) {
     const socket = io(SIGNALING_URL, {
       timeout: 60000, // Render free tier cold start can take 25–60s
       reconnectionAttempts: 5,
-      transports: ["websocket"], // Avoid xhr poll error; WebSocket works cross-origin on Render
     });
     socketRef.current = socket;
 

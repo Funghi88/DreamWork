@@ -3,7 +3,7 @@ services:
     name: dreamwork-signaling
     runtime: node
     buildCommand: npm install
-    startCommand: npx tsx server/signaling-server.ts
+    startCommand: node server/signaling-server.js
     envVars:
       - key: NODE_ENV
         value: production
