@@ -84,6 +84,7 @@ export function LiveMeetingModal({ isOpen, onClose }: LiveMeetingModalProps) {
   const cameraVideoTrackRef = useRef<MediaStreamTrack | null>(null);
   const callAreaRef = useRef<HTMLDivElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const joiningRef = useRef(false);
 
   useEffect(() => {
     if (isOpen && step === "join") {
@@ -167,7 +168,8 @@ export function LiveMeetingModal({ isOpen, onClose }: LiveMeetingModalProps) {
 
   const joinRoom = async () => {
     if (!userName.trim() || !roomId.trim()) return;
-
+    if (joiningRef.current) return;
+    joiningRef.current = true;
     setConnectionError(null);
     setStep("lobby");
     const signalingUrl = getSignalingUrl();
@@ -178,10 +180,12 @@ export function LiveMeetingModal({ isOpen, onClose }: LiveMeetingModalProps) {
       setConnectionError(
         'Signaling server not reachable. In Render, ensure "dreamwork-signaling" is deployed and running. If your server has a different URL, add ?signaling=YOUR_URL to this page.'
       );
-      setStep("join");
+      setStep((s) => (s === "lobby" ? "join" : s));
+      joiningRef.current = false;
       return;
     }
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     const videoTrack = stream.getVideoTracks()[0];
     cameraVideoTrackRef.current = videoTrack ?? null;
     localStreamRef.current = stream;
@@ -256,6 +260,12 @@ export function LiveMeetingModal({ isOpen, onClose }: LiveMeetingModalProps) {
 
     setStep("in-call");
     preloadSegmenter();
+    } catch (err) {
+      setConnectionError(err instanceof Error ? err.message : "Could not access camera or microphone.");
+      setStep("join");
+    } finally {
+      joiningRef.current = false;
+    }
   };
 
   const createRoom = () => {
