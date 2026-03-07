@@ -1318,6 +1318,7 @@ export default function App() {
       const el = (e.target as Node).nodeType === Node.ELEMENT_NODE ? (e.target as HTMLElement) : (e.target as Node).parentElement;
       if (el?.closest?.('[data-dreamwork-no-intercept]')) return;
       if (el?.closest?.('header, button, a, input, select, [role="button"], aside')) return;
+      if (el?.tagName === "IFRAME" || el?.closest?.("iframe")) return;
       const container = fullPageWhiteboard
         ? (activeScreenStream ? previewRef.current : fullPageContentRef.current)
         : previewRef.current;
@@ -1465,7 +1466,6 @@ export default function App() {
             src="https://excalidraw.com"
             title="Excalidraw"
             className="absolute inset-0 h-full w-full border-0 z-0"
-            style={showPip ? { pointerEvents: "none" } : undefined}
           />
           {/* Composite overlay for camera+filter when no screen (so filter can show) */}
           {showPip && !activeScreenStream && (
@@ -1807,7 +1807,6 @@ export default function App() {
                   src="https://excalidraw.com"
                   title="Excalidraw"
                   className="absolute inset-0 h-full w-full border-0"
-                  style={showPip ? { pointerEvents: "none" } : undefined}
                 />
               </div>
             )}
