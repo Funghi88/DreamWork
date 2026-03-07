@@ -281,6 +281,10 @@ export default function App() {
           rect.bottom <= prevRect.bottom - buf;
         if (!pipWellInsidePreview && fullPageWhiteboard && screenStream) {
           // Don't draw camera on composite; it's shown by the separate DOM overlay
+        } else if (!screenStream && !fullPageWhiteboard && !forceRecordRes) {
+          // Preview page, camera-only, not recording: skip composite draw; CircularWebcam shows it (avoids overlap)
+          ctx.fillStyle = "#0f172a";
+          ctx.fillRect(0, 0, w, h);
         } else {
         // Clamp to canvas bounds so camera stays visible when pip is outside preview (non-fullPage case)
         x = Math.max(0, Math.min(x, w - pw));
@@ -535,6 +539,10 @@ export default function App() {
 
   const captureScreen = async () => {
     setCaptureError(null);
+    if (!navigator.mediaDevices?.getDisplayMedia) {
+      setCaptureError("Screen capture is not available. Use HTTPS or localhost.");
+      return;
+    }
     const res = RECORD_RESOLUTIONS[recordResolution];
     const videoConstraints = {
       width: { ideal: res.w },
@@ -1271,6 +1279,7 @@ export default function App() {
     const handleNative = (e: PointerEvent | MouseEvent) => {
       if (pipDraggingRef.current || previewBoxDraggingRef.current) return;
       if ((e.target as HTMLElement)?.closest?.('[role="dialog"], [data-modal-overlay]')) return;
+      if ((e.target as HTMLElement)?.closest?.('header, button, a, input, select, [role="button"]')) return;
       const container = fullPageWhiteboard
         ? (screenStream ? previewRef.current : fullPageContentRef.current)
         : previewRef.current;
