@@ -25,7 +25,9 @@ import { ParticipantsPanel } from "./ParticipantsPanel";
 import { VirtualBackground, useVirtualBackground, preloadSegmenter } from "./VirtualBackground";
 import "./LiveMeetingModal.css";
 
-const SIGNALING_URL = import.meta.env.DEV ? "http://localhost:3001" : window.location.origin;
+const SIGNALING_URL =
+  import.meta.env.VITE_SIGNALING_URL ||
+  (import.meta.env.DEV ? "http://localhost:3001" : window.location.origin);
 
 function generateRoomId() {
   return Math.random().toString(36).slice(2, 10);

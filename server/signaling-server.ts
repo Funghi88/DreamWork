@@ -11,7 +11,7 @@ const io = new SocketIOServer(server, {
   cors: { origin: "*" },
 });
 
-const PORT = 3001;
+const PORT = process.env.PORT ?? 3001;
 
 io.on("connection", (socket) => {
   socket.on("join-room", (roomId: string, userName: string) => {

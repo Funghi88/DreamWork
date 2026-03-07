@@ -1,9 +1,21 @@
 services:
   - type: web
+    name: dreamwork-signaling
+    runtime: node
+    buildCommand: npm install
+    startCommand: npx tsx server/signaling-server.ts
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+  - type: web
     name: dreamwork
     runtime: static
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist
+    envVars:
+      - key: VITE_SIGNALING_URL
+        value: https://dreamwork-signaling.onrender.com
     routes:
       - type: rewrite
         source: /*

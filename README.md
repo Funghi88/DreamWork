@@ -24,6 +24,8 @@ npm run signaling
 npm run tauri dev
 ```
 
+In production (desktop + web), the app connects to a deployed signaling server. Deploy via Render Blueprint (see Deploy to Web) — it runs both the app and signaling server.
+
 **Test Live Meeting with multiple users** (dev mode):
 ```bash
 # Terminal 1
