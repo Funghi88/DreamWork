@@ -59,6 +59,7 @@ The app checks for updates on startup and installs + relaunches automatically. *
 2. Add these GitHub Secrets (Settings → Secrets → Actions):
    - `TAURI_SIGNING_PRIVATE_KEY` — contents of `keys/dreamwork.key`
    - `TAURI_SIGNING_PRIVATE_KEY_PASSPHRASE` — the password you set when generating the key
+   - `VITE_SIGNALING_URL` — (optional) signaling server URL for Live Meeting; defaults to `https://dreamwork-signaling.onrender.com` if unset
 3. Update `repository` in `package.json` if your repo is elsewhere (e.g. `"repository": "github.com/your-username/dreamwork"`)
 4. Release: push to the `release` branch, or create a tag (e.g. `git tag v0.1.0 && git push --tags`). Ensure `version` in `src-tauri/tauri.conf.json` matches the tag
 

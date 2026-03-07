@@ -27,7 +27,7 @@ import "./LiveMeetingModal.css";
 
 const SIGNALING_URL =
   import.meta.env.VITE_SIGNALING_URL ||
-  (import.meta.env.DEV ? "http://localhost:3001" : window.location.origin);
+  (import.meta.env.DEV ? "http://localhost:3001" : "https://dreamwork-signaling.onrender.com");
 
 function generateRoomId() {
   return Math.random().toString(36).slice(2, 10);
