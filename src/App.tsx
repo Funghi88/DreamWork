@@ -194,6 +194,7 @@ export default function App() {
     () => loadSettings().fullPagePreviewPos ?? null
   );
   const [showLiveMeeting, setShowLiveMeeting] = useState(false);
+  const [liveMeetingInCall, setLiveMeetingInCall] = useState(false);
 
   // Bring window to foreground on launch (macOS often leaves it behind) — only after app has mounted
   useEffect(() => {
@@ -1382,7 +1383,13 @@ export default function App() {
     <>
       <LiveMeetingModal
         isOpen={showLiveMeeting}
-        onClose={() => setShowLiveMeeting(false)}
+        onClose={() => {
+          setShowLiveMeeting(false);
+          setLiveMeetingInCall(false);
+        }}
+        inCallFromParent={liveMeetingInCall}
+        onEnterCall={() => setLiveMeetingInCall(true)}
+        onLeaveCall={() => setLiveMeetingInCall(false)}
       />
       {/* Persistent screen video: never unmounts so stream survives Whiteboard <-> Preview navigation */}
       <video

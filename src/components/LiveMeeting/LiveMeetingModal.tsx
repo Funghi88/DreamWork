@@ -52,9 +52,12 @@ interface Participant {
 interface LiveMeetingModalProps {
   isOpen: boolean;
   onClose: () => void;
+  inCallFromParent?: boolean;
+  onEnterCall?: () => void;
+  onLeaveCall?: () => void;
 }
 
-export function LiveMeetingModal({ isOpen, onClose }: LiveMeetingModalProps) {
+export function LiveMeetingModal({ isOpen, onClose, inCallFromParent = false, onEnterCall, onLeaveCall }: LiveMeetingModalProps) {
   const [step, setStep] = useState<"join" | "lobby" | "in-call">("join");
   const [userName, setUserName] = useState("");
   const [roomId, setRoomId] = useState("");
@@ -261,6 +264,7 @@ export function LiveMeetingModal({ isOpen, onClose }: LiveMeetingModalProps) {
 
     inCallRef.current = true;
     setStep("in-call");
+    onEnterCall?.();
     preloadSegmenter();
     } catch (err) {
       setConnectionError(err instanceof Error ? err.message : "Could not access camera or microphone.");
@@ -321,6 +325,7 @@ export function LiveMeetingModal({ isOpen, onClose }: LiveMeetingModalProps) {
 
   const leaveCall = () => {
     inCallRef.current = false;
+    onLeaveCall?.();
     screenStreamRef.current?.getTracks().forEach((t) => t.stop());
     localStreamRef.current?.getTracks().forEach((t) => t.stop());
     localStream?.getTracks().forEach((t) => t.stop());
@@ -389,7 +394,7 @@ export function LiveMeetingModal({ isOpen, onClose }: LiveMeetingModalProps) {
       <div
         className="live-meeting-modal-wrapper"
         style={
-            step === "join" && !inCallRef.current
+            step === "join" && !inCallRef.current && !inCallFromParent
             ? { width: 420, height: "auto", minHeight: 320 }
             : { width: modalSize.w, height: modalSize.h }
         }
@@ -399,7 +404,7 @@ export function LiveMeetingModal({ isOpen, onClose }: LiveMeetingModalProps) {
           <h2>Live Video Meeting</h2>
           <button
             type="button"
-            onClick={step === "lobby" || step === "in-call" || inCallRef.current ? leaveCall : onClose}
+            onClick={step === "lobby" || step === "in-call" || inCallRef.current || inCallFromParent ? leaveCall : onClose}
             className="live-meeting-close"
             aria-label="Close"
           >
@@ -407,7 +412,7 @@ export function LiveMeetingModal({ isOpen, onClose }: LiveMeetingModalProps) {
           </button>
         </div>
 
-        {step === "join" && !inCallRef.current && (
+        {step === "join" && !inCallRef.current && !inCallFromParent && (
           <div className="live-meeting-join">
             <div className="live-meeting-join-title">Join a meeting</div>
             <div className="live-meeting-join-features">
@@ -453,7 +458,7 @@ export function LiveMeetingModal({ isOpen, onClose }: LiveMeetingModalProps) {
           </div>
         )}
 
-        {(step === "lobby" || step === "in-call" || inCallRef.current) && (
+        {(step === "lobby" || step === "in-call" || inCallRef.current || inCallFromParent) && (
           <div className="live-meeting-call" ref={callAreaRef}>
             <div className="live-meeting-call-inner">
               <div className="live-meeting-info-bar">
