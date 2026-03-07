@@ -55,6 +55,7 @@ jobs:
         run: node scripts/update-updater-config.js
 
       - name: Set signaling URL
+        shell: bash
         run: |
           if [ -n "$SIGNALING_URL" ]; then
             echo "VITE_SIGNALING_URL=$SIGNALING_URL" >> $GITHUB_ENV
