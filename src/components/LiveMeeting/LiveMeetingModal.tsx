@@ -29,6 +29,17 @@ const DEFAULT_SIGNALING_URL =
   import.meta.env.VITE_SIGNALING_URL ||
   (import.meta.env.DEV ? "http://localhost:3001" : "https://dreamwork-signaling.onrender.com");
 
+const LIVE_MEETING_IN_CALL_KEY = "dreamwork-live-in-call";
+
+function getInCallFromStorage(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return sessionStorage.getItem(LIVE_MEETING_IN_CALL_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 function getSignalingUrl(): string {
   if (typeof window === "undefined") return DEFAULT_SIGNALING_URL;
   const params = new URLSearchParams(window.location.search);
@@ -89,6 +100,22 @@ export function LiveMeetingModal({ isOpen, onClose, inCallFromParent = false, on
   const nameInputRef = useRef<HTMLInputElement>(null);
   const joiningRef = useRef(false);
   const inCallRef = useRef(false);
+
+  const showInCallView =
+    step === "lobby" ||
+    step === "in-call" ||
+    inCallRef.current ||
+    inCallFromParent ||
+    getInCallFromStorage();
+  const showJoinForm = step === "join" && !inCallRef.current && !inCallFromParent && !getInCallFromStorage();
+
+  useEffect(() => {
+    if (!isOpen) {
+      try {
+        sessionStorage.removeItem(LIVE_MEETING_IN_CALL_KEY);
+      } catch {}
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen && step === "join") {
@@ -263,6 +290,9 @@ export function LiveMeetingModal({ isOpen, onClose, inCallFromParent = false, on
     });
 
     inCallRef.current = true;
+    try {
+      sessionStorage.setItem(LIVE_MEETING_IN_CALL_KEY, "1");
+    } catch {}
     setStep("in-call");
     onEnterCall?.();
     preloadSegmenter();
@@ -325,6 +355,9 @@ export function LiveMeetingModal({ isOpen, onClose, inCallFromParent = false, on
 
   const leaveCall = () => {
     inCallRef.current = false;
+    try {
+      sessionStorage.removeItem(LIVE_MEETING_IN_CALL_KEY);
+    } catch {}
     onLeaveCall?.();
     screenStreamRef.current?.getTracks().forEach((t) => t.stop());
     localStreamRef.current?.getTracks().forEach((t) => t.stop());
@@ -394,7 +427,7 @@ export function LiveMeetingModal({ isOpen, onClose, inCallFromParent = false, on
       <div
         className="live-meeting-modal-wrapper"
         style={
-            step === "join" && !inCallRef.current && !inCallFromParent
+            showJoinForm
             ? { width: 420, height: "auto", minHeight: 320 }
             : { width: modalSize.w, height: modalSize.h }
         }
@@ -404,7 +437,7 @@ export function LiveMeetingModal({ isOpen, onClose, inCallFromParent = false, on
           <h2>Live Video Meeting</h2>
           <button
             type="button"
-            onClick={step === "lobby" || step === "in-call" || inCallRef.current || inCallFromParent ? leaveCall : onClose}
+            onClick={showInCallView ? leaveCall : onClose}
             className="live-meeting-close"
             aria-label="Close"
           >
@@ -412,7 +445,7 @@ export function LiveMeetingModal({ isOpen, onClose, inCallFromParent = false, on
           </button>
         </div>
 
-        {step === "join" && !inCallRef.current && !inCallFromParent && (
+        {showJoinForm && (
           <div className="live-meeting-join">
             <div className="live-meeting-join-title">Join a meeting</div>
             <div className="live-meeting-join-features">
@@ -458,7 +491,7 @@ export function LiveMeetingModal({ isOpen, onClose, inCallFromParent = false, on
           </div>
         )}
 
-        {(step === "lobby" || step === "in-call" || inCallRef.current || inCallFromParent) && (
+        {showInCallView && (
           <div className="live-meeting-call" ref={callAreaRef}>
             <div className="live-meeting-call-inner">
               <div className="live-meeting-info-bar">
