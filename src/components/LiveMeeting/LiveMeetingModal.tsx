@@ -68,6 +68,7 @@ export function LiveMeetingModal({ isOpen, onClose }: LiveMeetingModalProps) {
 
   const socketRef = useRef<Socket | null>(null);
   const peerConnectionsRef = useRef<Record<string, RTCPeerConnection>>({});
+  const localStreamRef = useRef<MediaStream | null>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const streamsRef = useRef<Record<string, MediaStream>>({});
   const screenStreamRef = useRef<MediaStream | null>(null);
@@ -129,10 +130,11 @@ export function LiveMeetingModal({ isOpen, onClose }: LiveMeetingModalProps) {
       iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
     });
 
-    const videoTrack = screenStreamRef.current?.getVideoTracks()[0] ?? localStream?.getVideoTracks()[0];
-    const audioTrack = localStream?.getAudioTracks()[0];
-    if (videoTrack) pc.addTrack(videoTrack, localStream!);
-    if (audioTrack) pc.addTrack(audioTrack, localStream!);
+    const stream = localStreamRef.current ?? localStream;
+    const videoTrack = screenStreamRef.current?.getVideoTracks()[0] ?? stream?.getVideoTracks()[0];
+    const audioTrack = stream?.getAudioTracks()[0];
+    if (videoTrack && stream) pc.addTrack(videoTrack, stream);
+    if (audioTrack && stream) pc.addTrack(audioTrack, stream);
 
     pc.ontrack = (e) => {
       const stream = e.streams[0];
@@ -161,6 +163,7 @@ export function LiveMeetingModal({ isOpen, onClose }: LiveMeetingModalProps) {
     const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     const videoTrack = stream.getVideoTracks()[0];
     cameraVideoTrackRef.current = videoTrack ?? null;
+    localStreamRef.current = stream;
     setLocalStream(stream);
     setDisplayStream(stream);
 
@@ -278,12 +281,14 @@ export function LiveMeetingModal({ isOpen, onClose }: LiveMeetingModalProps) {
 
   const leaveCall = () => {
     screenStreamRef.current?.getTracks().forEach((t) => t.stop());
+    localStreamRef.current?.getTracks().forEach((t) => t.stop());
     localStream?.getTracks().forEach((t) => t.stop());
     Object.values(peerConnectionsRef.current).forEach((pc) => pc.close());
     peerConnectionsRef.current = {};
     streamsRef.current = {};
     socketRef.current?.disconnect();
     socketRef.current = null;
+    localStreamRef.current = null;
     setLocalStream(null);
     setDisplayStream(null);
     setParticipants([]);

@@ -60,6 +60,7 @@ The app checks for updates on startup and installs + relaunches automatically. *
    - `TAURI_SIGNING_PRIVATE_KEY` — contents of `keys/dreamwork.key`
    - `TAURI_SIGNING_PRIVATE_KEY_PASSPHRASE` — the password you set when generating the key
    - `VITE_SIGNALING_URL` — (optional) signaling server URL for Live Meeting; defaults to `https://dreamwork-signaling.onrender.com` if unset
+   - **macOS notarization** (optional, for installs without Gatekeeper warning): `APPLE_ID`, `APPLE_PASSWORD` (app-specific password from appleid.apple.com), `APPLE_TEAM_ID`
 3. Update `repository` in `package.json` if your repo is elsewhere (e.g. `"repository": "github.com/your-username/dreamwork"`)
 4. Release: push to the `release` branch, or create a tag (e.g. `git tag v0.1.0 && git push --tags`). Ensure `version` in `src-tauri/tauri.conf.json` matches the tag
 
@@ -80,6 +81,8 @@ The app checks for updates on startup and installs + relaunches automatically. *
 7. **Record** — Records screen + webcam composite; Save or Copy when done
 
 ## Troubleshooting
+
+**"Apple cannot verify" / Gatekeeper blocks install on Mac?** Two options: (1) **Notarize** — add `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID` to GitHub Secrets (requires [Apple Developer](https://developer.apple.com) $99/yr). (2) **Workaround** — right-click the app → Open → Open. Or: System Settings → Privacy & Security → scroll to the app → click "Open Anyway".
 
 **Camera not showing in full-page whiteboard?** Try running in a regular browser first (`npm run dev` → http://localhost:1420). If it works there but not in Tauri, it may be a WebView limitation on macOS. Start the camera before opening full-page whiteboard.
 
