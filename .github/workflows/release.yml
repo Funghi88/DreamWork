@@ -55,15 +55,7 @@ jobs:
         run: node scripts/update-updater-config.js
 
       - name: Set signaling URL
-        shell: bash
-        run: |
-          if [ -n "$SIGNALING_URL" ]; then
-            echo "VITE_SIGNALING_URL=$SIGNALING_URL" >> $GITHUB_ENV
-          else
-            echo "VITE_SIGNALING_URL=https://dreamwork-signaling.onrender.com" >> $GITHUB_ENV
-          fi
-        env:
-          SIGNALING_URL: ${{ secrets.VITE_SIGNALING_URL }}
+        run: echo "VITE_SIGNALING_URL=${{ secrets.VITE_SIGNALING_URL != '' && secrets.VITE_SIGNALING_URL || 'https://dreamwork-signaling.onrender.com' }}" >> $GITHUB_ENV
 
       - uses: tauri-apps/tauri-action@v0.6.1
         env:
