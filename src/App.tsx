@@ -1471,16 +1471,16 @@ export default function App() {
           {showPip && !activeScreenStream && (
             <div
               ref={previewRef}
-              className="absolute inset-0 z-[9998]"
+              className="absolute inset-0 z-[9998] pointer-events-none"
               onPointerDownCapture={handlePreviewPointerDown}
             >
               <canvas
                 ref={compositeRef}
                 className="absolute inset-0 w-full h-full pointer-events-none"
               />
-              {/* Hit target: 1.5x size, centered on camera */}
+              {/* Hit target: 1.5x size, centered on camera - pointer-events-auto so only camera receives drag */}
               <div
-                className="absolute z-10 cursor-grab touch-none"
+                className="absolute z-10 cursor-grab touch-none pointer-events-auto"
                 style={{
                   left: Math.max(0, fullPagePipPos.x - avatarSize / 4),
                   top: Math.max(0, fullPagePipPos.y - avatarSize / 4),
