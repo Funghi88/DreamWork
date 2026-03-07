@@ -111,6 +111,7 @@ function hexToRgba(hex: string, alpha: number): string {
 
 export default function App() {
   const screenVideoRef = useRef<HTMLVideoElement>(null);
+  const persistentScreenVideoRef = useRef<HTMLVideoElement>(null);
   const cameraVideoRef = useRef<HTMLVideoElement>(null);
   const compositeRef = useRef<HTMLCanvasElement>(null);
   const pipRef = useRef<HTMLDivElement>(null);
@@ -122,7 +123,8 @@ export default function App() {
   const [portalRect, setPortalRect] = useState<DOMRect | null>(null);
   const [mainLayoutPortalRect, setMainLayoutPortalRect] = useState<DOMRect | null>(null);
 
-  const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
+  const [previewScreenStream, setPreviewScreenStream] = useState<MediaStream | null>(null);
+  const [whiteboardScreenStream, setWhiteboardScreenStream] = useState<MediaStream | null>(null);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [showPip, setShowPip] = useState(false);
   const [avatarImageSrc, setAvatarImageSrc] = useState<string | null>(
@@ -168,6 +170,7 @@ export default function App() {
   const [whiteboardInPreview, setWhiteboardInPreview] = useState(false);
   const [showUseInPreviewDialog, setShowUseInPreviewDialog] = useState(false);
   const [fullPageWhiteboard, setFullPageWhiteboard] = useState(false);
+  const activeScreenStream = fullPageWhiteboard ? whiteboardScreenStream : previewScreenStream;
   const [isRecording, setIsRecording] = useState(false);
   const [isRecordingPaused, setIsRecordingPaused] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
@@ -210,12 +213,12 @@ export default function App() {
   const recordingStartRef = useRef(0);
   const audioCtxRef = useRef<AudioContext | null>(null);
 
-  const hasScreen = !!screenStream || !!screenVideoRef.current?.srcObject;
+  const hasScreen = !!activeScreenStream || !!persistentScreenVideoRef.current?.srcObject;
   const hasCamera = showPip;
 
   const drawComposite = useCallback(
     (forceRecordRes = false) => {
-      const screenVideo = screenVideoRef.current;
+      const screenVideo = persistentScreenVideoRef.current;
       const cameraVideo = cameraVideoRef.current;
       const composite = compositeRef.current;
       const pip = pipRef.current;
@@ -250,7 +253,7 @@ export default function App() {
         ctx.fillStyle = "#0f172a";
         ctx.fillRect(0, 0, w, h);
         ctx.drawImage(screenVideo, 0, 0, w, h);
-      } else if (useRecordRes && !(fullPageWhiteboard && !screenStream)) {
+      } else if (useRecordRes && !(fullPageWhiteboard && !activeScreenStream)) {
         ctx.fillStyle = "#0f172a";
         ctx.fillRect(0, 0, w, h);
       }
@@ -272,19 +275,15 @@ export default function App() {
         let y = (rect.top - prevRect.top) * scaleY;
         const pw = rect.width * scale;
         const ph = rect.height * scale;
-        // When fullPage+screenStream, camera and preview are independent: if camera is outside preview, skip drawing on composite (DOM overlay shows it)
+        // When fullPage+activeScreenStream, camera and preview are independent: if camera is outside preview, skip drawing on composite (DOM overlay shows it)
         const buf = 24;
         const pipWellInsidePreview =
           rect.left >= prevRect.left + buf &&
           rect.right <= prevRect.right - buf &&
           rect.top >= prevRect.top + buf &&
           rect.bottom <= prevRect.bottom - buf;
-        if (!pipWellInsidePreview && fullPageWhiteboard && screenStream) {
+        if (!pipWellInsidePreview && fullPageWhiteboard && activeScreenStream) {
           // Don't draw camera on composite; it's shown by the separate DOM overlay
-        } else if (!screenStream && !fullPageWhiteboard && !forceRecordRes) {
-          // Preview page, camera-only, not recording: skip composite draw; CircularWebcam shows it (avoids overlap)
-          ctx.fillStyle = "#0f172a";
-          ctx.fillRect(0, 0, w, h);
         } else {
         // Clamp to canvas bounds so camera stays visible when pip is outside preview (non-fullPage case)
         x = Math.max(0, Math.min(x, w - pw));
@@ -387,7 +386,7 @@ export default function App() {
       beautyMode,
       beautySettings,
       faceFilter,
-      screenStream,
+      activeScreenStream,
       cameraStream,
       recordResolution,
       isRecording,
@@ -414,7 +413,7 @@ export default function App() {
   const activePipPos = fullPageWhiteboard ? fullPagePipPos : pipPos;
   const cameraOutsidePreview =
     fullPageWhiteboard &&
-    screenStream &&
+    activeScreenStream &&
     portalRect &&
     (activePipPos.x + avatarSize <= portalRect.left + OVERLAP_BUFFER ||
       activePipPos.x >= portalRect.left + 320 - OVERLAP_BUFFER ||
@@ -531,9 +530,16 @@ export default function App() {
   }, [cameraOutsidePreview, showPip]);
 
   const stopScreenShare = () => {
-    if (screenStream) {
-      screenStream.getTracks().forEach((t) => t.stop());
-      setScreenStream(null);
+    if (fullPageWhiteboard) {
+      if (whiteboardScreenStream) {
+        whiteboardScreenStream.getTracks().forEach((t) => t.stop());
+        setWhiteboardScreenStream(null);
+      }
+    } else {
+      if (previewScreenStream) {
+        previewScreenStream.getTracks().forEach((t) => t.stop());
+        setPreviewScreenStream(null);
+      }
     }
   };
 
@@ -554,16 +560,28 @@ export default function App() {
         audio: true,
       });
       const videoTrack = stream.getVideoTracks()[0];
-      if (videoTrack) videoTrack.onended = () => setScreenStream(null);
-      setScreenStream(stream);
+      if (videoTrack) {
+        videoTrack.onended = () => {
+          setPreviewScreenStream((s) => (s === stream ? null : s));
+          setWhiteboardScreenStream((w) => (w === stream ? null : w));
+        };
+      }
+      if (fullPageWhiteboard) setWhiteboardScreenStream(stream);
+      else setPreviewScreenStream(stream);
     } catch (err: unknown) {
       try {
         const stream = await navigator.mediaDevices.getDisplayMedia({
           video: videoConstraints,
         });
         const videoTrack = stream.getVideoTracks()[0];
-        if (videoTrack) videoTrack.onended = () => setScreenStream(null);
-        setScreenStream(stream);
+        if (videoTrack) {
+          videoTrack.onended = () => {
+            setPreviewScreenStream((s) => (s === stream ? null : s));
+            setWhiteboardScreenStream((w) => (w === stream ? null : w));
+          };
+        }
+        if (fullPageWhiteboard) setWhiteboardScreenStream(stream);
+        else setPreviewScreenStream(stream);
       } catch (err2: unknown) {
         const msg =
           err2 instanceof Error ? err2.message : "Permission denied";
@@ -577,6 +595,10 @@ export default function App() {
       setShowPip(true);
       return;
     }
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCaptureError("Camera is not available. Use HTTPS or localhost.");
+      return;
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
       setCameraStream(stream);
@@ -584,6 +606,7 @@ export default function App() {
       setCaptureError(null);
     } catch (err) {
       console.error("Camera failed:", err);
+      setCaptureError(err instanceof Error ? err.message : "Camera permission denied");
     }
   };
 
@@ -616,10 +639,10 @@ export default function App() {
   };
 
   const startRecording = async () => {
-    const screenVideo = screenVideoRef.current;
+    const screenVideo = persistentScreenVideoRef.current;
     let composite = compositeRef.current;
     let preview = previewRef.current;
-    const hasContent = screenStream || screenVideo?.srcObject || showPip;
+    const hasContent = activeScreenStream || screenVideo?.srcObject || showPip;
     if (!hasContent) return;
     if (!preview || !composite) return;
 
@@ -655,7 +678,7 @@ export default function App() {
       /* mic not available */
     }
 
-    const screenAudio = screenStream?.getAudioTracks?.()?.[0];
+    const screenAudio = activeScreenStream?.getAudioTracks?.()?.[0];
     if (screenAudio) {
       const sysSource = audioCtx.createMediaStreamSource(
         new MediaStream([screenAudio])
@@ -761,10 +784,7 @@ export default function App() {
   };
 
   const openFullPageWhiteboard = () => {
-    if (screenStream) {
-      screenStream.getTracks().forEach((t) => t.stop());
-      setScreenStream(null);
-    }
+    // Keep previewScreenStream and whiteboardScreenStream — they persist independently per page
     // Align camera: convert pipPos (preview coords) to fullPagePipPos (full-page coords)
     const prev = previewRef.current;
     const content = fullPageContentRef.current;
@@ -815,33 +835,42 @@ export default function App() {
     }
   };
 
+  // Persistent screen video: always mounted so stream survives layout switches (Whiteboard <-> Preview)
   useEffect(() => {
-    const v = screenVideoRef.current;
+    const v = persistentScreenVideoRef.current;
     if (!v) return;
-    if (screenStream) {
-      v.srcObject = screenStream;
+    if (activeScreenStream) {
+      v.srcObject = activeScreenStream;
       v.play().catch(() => {});
     } else {
       v.srcObject = null;
     }
-  }, [screenStream, fullPageWhiteboard]);
+  }, [activeScreenStream]);
+
+  // Sync layout-specific video from persistent ref for display; drawComposite uses persistent ref
+  useEffect(() => {
+    const v = screenVideoRef.current;
+    if (!v || !activeScreenStream) return;
+    v.srcObject = activeScreenStream;
+    v.play().catch(() => {});
+  }, [activeScreenStream, fullPageWhiteboard]);
 
   useEffect(() => {
-    if (!showPip && screenStream && !isRecording) {
+    if (!showPip && activeScreenStream && !isRecording) {
       drawComposite();
     }
-  }, [showPip, screenStream, isRecording, drawComposite]);
+  }, [showPip, activeScreenStream, isRecording, drawComposite]);
 
-  // Track rect for full-page portal: preview box when screenStream, else full content
+  // Track rect for full-page portal: preview box when activeScreenStream, else full content
   useLayoutEffect(() => {
     if (!fullPageWhiteboard || !showPip) {
       setPortalRect(null);
       return;
     }
-    const el = screenStream ? previewRef.current : fullPageContentRef.current;
+    const el = activeScreenStream ? previewRef.current : fullPageContentRef.current;
     if (!el) return;
     const update = () => {
-      const target = screenStream ? previewRef.current : fullPageContentRef.current;
+      const target = activeScreenStream ? previewRef.current : fullPageContentRef.current;
       if (target) setPortalRect(target.getBoundingClientRect());
     };
     update();
@@ -852,7 +881,7 @@ export default function App() {
       ro.disconnect();
       window.removeEventListener("resize", update);
     };
-  }, [fullPageWhiteboard, showPip, screenStream, fullPagePreviewPos]);
+  }, [fullPageWhiteboard, showPip, activeScreenStream, fullPagePreviewPos]);
 
   // Portal main layout camera (iframe or overlay can block events; portal ensures camera receives them)
   useLayoutEffect(() => {
@@ -886,7 +915,7 @@ export default function App() {
       }
       scrollParent = scrollParent.parentElement;
     }
-    // Re-run after layout settles (e.g. when screenStream loads content)
+    // Re-run after layout settles (e.g. when activeScreenStream loads content)
     const t1 = setTimeout(update, 50);
     const t2 = setTimeout(update, 200);
     const t3 = setTimeout(update, 500);
@@ -899,7 +928,7 @@ export default function App() {
       clearTimeout(t2);
       clearTimeout(t3);
     };
-  }, [fullPageWhiteboard, showPip, screenStream]);
+  }, [fullPageWhiteboard, showPip, activeScreenStream]);
 
   const faceFilterActiveRef = useRef(false);
   faceFilterActiveRef.current = faceFilter !== "none" && showPip && !avatarImageSrc;
@@ -937,7 +966,7 @@ export default function App() {
   // Draw loop for full-page whiteboard (face filter loop handles face filter case)
   useEffect(() => {
     if (!fullPageWhiteboard || isRecording) return;
-    if (!screenStream && !showPip) return;
+    if (!activeScreenStream && !showPip) return;
     if (faceFilter !== "none") return; // face filter loop handles that
     let id: number;
     const loop = () => {
@@ -946,7 +975,7 @@ export default function App() {
     };
     id = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(id);
-  }, [fullPageWhiteboard, isRecording, screenStream, showPip, faceFilter]);
+  }, [fullPageWhiteboard, isRecording, activeScreenStream, showPip, faceFilter]);
 
   // Draw loop for main layout when camera on (screen optional; face filter loop handles face filter case)
   useEffect(() => {
@@ -962,10 +991,17 @@ export default function App() {
     return () => cancelAnimationFrame(id);
   }, [fullPageWhiteboard, isRecording, showPip, avatarImageSrc, faceFilter]);
 
+  const previewScreenStreamRef = useRef(previewScreenStream);
+  const whiteboardScreenStreamRef = useRef(whiteboardScreenStream);
+  const cameraStreamRef = useRef(cameraStream);
+  previewScreenStreamRef.current = previewScreenStream;
+  whiteboardScreenStreamRef.current = whiteboardScreenStream;
+  cameraStreamRef.current = cameraStream;
   useEffect(() => {
     return () => {
-      screenStream?.getTracks().forEach((t) => t.stop());
-      cameraStream?.getTracks().forEach((t) => t.stop());
+      previewScreenStreamRef.current?.getTracks().forEach((t) => t.stop());
+      whiteboardScreenStreamRef.current?.getTracks().forEach((t) => t.stop());
+      cameraStreamRef.current?.getTracks().forEach((t) => t.stop());
     };
   }, []);
 
@@ -1124,10 +1160,10 @@ export default function App() {
     if (pipDraggingRef.current) return;
     const pip = pipRef.current;
     const usePreviewPagePos = previewPageContextRef.current;
-    const useViewportCoords = !usePreviewPagePos && !!screenStream;
+    const useViewportCoords = !usePreviewPagePos && !!activeScreenStream;
     const container = usePreviewPagePos
       ? previewRef.current
-      : (screenStream ? null : fullPageContentRef.current);
+      : (activeScreenStream ? null : fullPageContentRef.current);
     if (!pip) return;
     if (!useViewportCoords && !container) return;
     const pe = e as React.PointerEvent;
@@ -1181,10 +1217,10 @@ export default function App() {
     document.addEventListener("pointercancel", onUp);
     document.addEventListener("mousemove", onMoveM);
     document.addEventListener("mouseup", onUp);
-  }, [portalRect, mainLayoutPortalRect, screenStream, avatarSize]);
+  }, [portalRect, mainLayoutPortalRect, activeScreenStream, avatarSize]);
 
   const handlePreviewBoxDrag = useCallback((e: React.PointerEvent) => {
-    if (!fullPageWhiteboard || !screenStream || previewBoxDraggingRef.current) return;
+    if (!fullPageWhiteboard || !activeScreenStream || previewBoxDraggingRef.current) return;
     const preview = previewRef.current;
     const parent = fullPageContentRef.current;
     if (!preview || !parent) return;
@@ -1226,14 +1262,14 @@ export default function App() {
     document.addEventListener("pointercancel", onUp);
     document.addEventListener("mousemove", onMove as (ev: MouseEvent) => void);
     document.addEventListener("mouseup", onUp);
-  }, [fullPageWhiteboard, screenStream, fullPagePreviewPos]);
+  }, [fullPageWhiteboard, activeScreenStream, fullPagePreviewPos]);
 
   const handlePreviewPointerDown = useCallback((e: React.PointerEvent) => {
     if (!showPip || pipDraggingRef.current) return;
     setContextFromClick(e.clientX, e.clientY);
     const pip = pipRef.current;
     const container = fullPageWhiteboard
-      ? (screenStream ? previewRef.current : fullPageContentRef.current)
+      ? (activeScreenStream ? previewRef.current : fullPageContentRef.current)
       : previewRef.current;
     if (!container) return;
     const buffer = 40;
@@ -1253,7 +1289,7 @@ export default function App() {
         y >= pos.y - buffer && y <= pos.y + avatarSize + buffer;
     }
     // When we have both preview box and camera (fullPage+screen), distinguish: camera vs preview box drag
-    if (fullPageWhiteboard && screenStream) {
+    if (fullPageWhiteboard && activeScreenStream) {
       if (inCameraBounds) {
         e.preventDefault();
         e.stopPropagation();
@@ -1267,7 +1303,7 @@ export default function App() {
       e.stopPropagation();
       handlePipMouseDown(e as unknown as React.MouseEvent);
     }
-  }, [fullPageWhiteboard, screenStream, showPip, avatarSize, handlePipMouseDown, handlePreviewBoxDrag, setContextFromClick]);
+  }, [fullPageWhiteboard, activeScreenStream, showPip, avatarSize, handlePipMouseDown, handlePreviewBoxDrag, setContextFromClick]);
 
   // Native document capture: any click in preview starts drag (bypasses iframe blocking)
   const handlePipMouseDownRef = useRef(handlePipMouseDown);
@@ -1279,9 +1315,11 @@ export default function App() {
     const handleNative = (e: PointerEvent | MouseEvent) => {
       if (pipDraggingRef.current || previewBoxDraggingRef.current) return;
       if ((e.target as HTMLElement)?.closest?.('[role="dialog"], [data-modal-overlay]')) return;
-      if ((e.target as HTMLElement)?.closest?.('header, button, a, input, select, [role="button"]')) return;
+      const el = (e.target as Node).nodeType === Node.ELEMENT_NODE ? (e.target as HTMLElement) : (e.target as Node).parentElement;
+      if (el?.closest?.('[data-dreamwork-no-intercept]')) return;
+      if (el?.closest?.('header, button, a, input, select, [role="button"], aside')) return;
       const container = fullPageWhiteboard
-        ? (screenStream ? previewRef.current : fullPageContentRef.current)
+        ? (activeScreenStream ? previewRef.current : fullPageContentRef.current)
         : previewRef.current;
       const r = container?.getBoundingClientRect();
       if (!container) return;
@@ -1311,7 +1349,7 @@ export default function App() {
       document.removeEventListener("pointerdown", handleNative, { capture: true });
       document.removeEventListener("mousedown", handleNative, { capture: true });
     };
-  }, [showPip, fullPageWhiteboard, screenStream, setContextFromClick]);
+  }, [showPip, fullPageWhiteboard, activeScreenStream, setContextFromClick]);
 
   useEffect(() => {
     if (pipDragging || previewBoxDragging) {
@@ -1345,15 +1383,25 @@ export default function App() {
         isOpen={showLiveMeeting}
         onClose={() => setShowLiveMeeting(false)}
       />
+      {/* Persistent screen video: never unmounts so stream survives Whiteboard <-> Preview navigation */}
+      <video
+        ref={persistentScreenVideoRef}
+        autoPlay
+        muted
+        playsInline
+        className="fixed -z-50 size-0 opacity-0 pointer-events-none"
+        aria-hidden
+      />
       {/* No standalone hidden video on preview page - CircularWebcam provides the video for drawComposite */}
       {fullPageWhiteboard ? (
       <div className="glass-bg flex h-screen flex-col overflow-hidden">
-        <header
-          className={`glass-panel sticky top-0 z-50 flex shrink-0 flex-col shadow-sm ${
-            isCompact ? "gap-1.5 px-3 py-2" : "gap-2 px-4 py-3"
-          }`}
-        >
-          <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+      <header
+        data-dreamwork-no-intercept
+        className={`glass-panel sticky top-0 z-50 flex shrink-0 flex-col shadow-sm ${
+          isCompact ? "gap-1.5 px-3 py-2" : "gap-2 px-4 py-3"
+        }`}
+      >
+        <div className="flex flex-wrap items-center gap-2 sm:gap-4">
             <div className="flex shrink-0 items-center gap-2">
               <img
                 src={avatarImageSrc ?? "/logo.png"}
@@ -1420,7 +1468,7 @@ export default function App() {
             style={showPip ? { pointerEvents: "none" } : undefined}
           />
           {/* Composite overlay for camera+filter when no screen (so filter can show) */}
-          {showPip && !screenStream && (
+          {showPip && !activeScreenStream && (
             <div
               ref={previewRef}
               className="absolute inset-0 z-[9998]"
@@ -1447,13 +1495,13 @@ export default function App() {
             </div>
           )}
           {/* Camera: portal to body for both web and app (iframe blocks events in sibling layout) */}
-          {showPip && fullPageWhiteboard && (portalRect || screenStream || (isRecording && !screenStream)) &&
+          {showPip && fullPageWhiteboard && (portalRect || activeScreenStream || (isRecording && !activeScreenStream)) &&
             createPortal(
               <div
                 style={{
                   position: "fixed",
-                  left: fullPageWhiteboard && screenStream ? fullPagePipPos.x : (portalRect ? portalRect.left + fullPagePipPos.x : fullPagePipPos.x),
-                  top: fullPageWhiteboard && screenStream ? fullPagePipPos.y : (portalRect ? portalRect.top + fullPagePipPos.y : fullPagePipPos.y),
+                  left: fullPageWhiteboard && activeScreenStream ? fullPagePipPos.x : (portalRect ? portalRect.left + fullPagePipPos.x : fullPagePipPos.x),
+                  top: fullPageWhiteboard && activeScreenStream ? fullPagePipPos.y : (portalRect ? portalRect.top + fullPagePipPos.y : fullPagePipPos.y),
                   width: avatarSize,
                   height: avatarSize,
                   zIndex: 99999,
@@ -1491,7 +1539,7 @@ export default function App() {
                 />
                 <CircularWebcam
                   hidden={
-                    (faceFilter !== "none" && !avatarImageSrc) && !cameraOutsidePreview
+                    ((faceFilter !== "none" && !avatarImageSrc) && !cameraOutsidePreview) || !!activeScreenStream
                   }
                   forceCanvasDisplay={false}
                   useExternalVideo={false}
@@ -1512,7 +1560,7 @@ export default function App() {
               </div>,
               document.body
             )}
-          {showPip && fullPageWhiteboard && !portalRect && !screenStream && (
+          {showPip && fullPageWhiteboard && !portalRect && !activeScreenStream && (
             <CircularWebcam
               hidden={faceFilter !== "none" && !avatarImageSrc}
               forceCanvasDisplay={false}
@@ -1533,7 +1581,7 @@ export default function App() {
             />
           )}
           {/* Preview box: when screen captured, shows composed view (screen + camera + filter) */}
-          {screenStream && (
+          {activeScreenStream && (
             <div
               ref={previewRef}
               className={`absolute z-[9999] h-[180px] w-[320px] overflow-hidden rounded-xl border-2 border-white/30 bg-slate-900 shadow-xl ${
@@ -1557,7 +1605,7 @@ export default function App() {
                 style={{ visibility: showPip ? "visible" : "hidden" }}
               />
               {/* Hit target: only when camera is relative to preview (not viewport coords); else portaled camera has its own overlay */}
-              {showPip && !(fullPageWhiteboard && screenStream) && (
+              {showPip && !(fullPageWhiteboard && activeScreenStream) && (
                 <div
                   className="absolute z-10 cursor-grab touch-none"
                   style={{
@@ -1605,6 +1653,7 @@ export default function App() {
         </div>
       )}
       <header
+        data-dreamwork-no-intercept
         className={`glass-panel sticky top-0 z-50 flex shrink-0 flex-col shadow-sm ${
           isCompact ? "gap-1.5 px-3 py-2" : "gap-2 px-4 py-3"
         }`}
@@ -1723,7 +1772,7 @@ export default function App() {
                 </button>
               </div>
             )}
-            {!screenStream && !captureError && !showPip && (
+            {!activeScreenStream && !captureError && !showPip && (
               <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
                 Capture screen to start
               </div>
@@ -1739,7 +1788,7 @@ export default function App() {
                 muted
                 playsInline
                 style={{
-                  display: screenStream ? "block" : "none",
+                  display: activeScreenStream ? "block" : "none",
                   visibility: showPip ? "hidden" : "visible",
                 }}
                 onLoadedData={() => drawComposite()}
@@ -1748,7 +1797,7 @@ export default function App() {
                 ref={compositeRef}
                 id="composite"
                 className="absolute inset-0 pointer-events-none"
-                style={{ display: showPip || screenStream ? "block" : "none", zIndex: 1 }}
+                style={{ display: showPip || activeScreenStream ? "block" : "none", zIndex: 1 }}
               />
             </div>
             {showWhiteboard && whiteboardInPreview && (
@@ -1791,7 +1840,9 @@ export default function App() {
                     }}
                   >
                     <CircularWebcam
-                    hidden={faceFilter !== "none" && !avatarImageSrc}
+                    hidden={true}
+                    useCanvasForDisplay={isTauri}
+                    useImgForDisplay={isTauri}
                     cameraStream={cameraStream}
                     avatarSize={avatarSizeDisplay}
                     avatarShape={avatarShape}
@@ -1812,7 +1863,9 @@ export default function App() {
               )}
             {showPip && !mainLayoutPortalRect && (
               <CircularWebcam
-                hidden={faceFilter !== "none" && !avatarImageSrc}
+                hidden={true}
+                useCanvasForDisplay={isTauri}
+                useImgForDisplay={isTauri}
                 cameraStream={cameraStream}
                 avatarSize={avatarSize}
                 avatarShape={avatarShape}

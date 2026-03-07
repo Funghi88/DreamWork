@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:web": "vite --port 5173",
     "build": "node scripts/update-updater-config.js && tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",

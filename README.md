@@ -11,9 +11,9 @@ npm run tauri dev
 
 To test in a regular browser (helps isolate Tauri/WebView issues):
 ```bash
-npm run dev
+npm run dev:web
 ```
-Then open http://localhost:1420
+Then open http://localhost:5173 (uses port 5173 so it doesn't conflict with `npm run tauri dev` on 1420)
 
 **Live Meeting** (requires signaling server):
 ```bash
@@ -62,6 +62,12 @@ The app checks for updates on startup and installs + relaunches automatically. *
    - `VITE_SIGNALING_URL` — (optional) signaling server URL for Live Meeting; defaults to `https://dreamwork-signaling.onrender.com` if unset
 3. Update `repository` in `package.json` if your repo is elsewhere (e.g. `"repository": "github.com/your-username/dreamwork"`)
 4. Release: push to the `release` branch, or create a tag (e.g. `git tag v0.1.0 && git push --tags`). Ensure `version` in `src-tauri/tauri.conf.json` matches the tag
+
+### How updates work
+
+- **Desktop app:** Run `npm run tauri build` locally to produce a new `.app`/`.dmg` (macOS) or `.exe` (Windows) with the latest features. Users with auto-updates enabled get new versions when you push releases to GitHub.
+- **Web (dreamwork.onrender.com):** Render deploys from your GitHub repo. It typically redeploys on each push to the connected branch. GitHub Actions passing is not required for the web deploy — Render builds from the repo directly.
+- **GitHub Actions:** The release workflow builds desktop installers for macOS, Linux, and Windows. If the Windows job fails (e.g. exit code 1), check the Actions logs. Common causes: missing `TAURI_SIGNING_PRIVATE_KEY` / `TAURI_SIGNING_PRIVATE_KEY_PASSPHRASE` secrets, or MSVC toolchain issues on the runner.
 
 ## Features
 
